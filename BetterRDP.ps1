@@ -403,6 +403,28 @@ function Apply-GamingRDPOptimizations {
     Set-ItemProperty -Path $lanmanPath -Name "DisableLargeMtu" -Value 0 -Type DWord
 }
 
+<# DEV NOTES FOR WHERE MULTIPLE GPUS ARE INVOLVED AND USER PREFERS SPECIFIC GPU
+
+HKLM\SYSTEM\CurrentControlSet\Control\Video\
+    - Contains device GUIDs and IDs for all present GPUs
+    - Use this initially to identify GPU
+
+HKLM\HARDWARE\DEVICEMAP\VIDEO\
+    - Contains aliases, i.e., `\Device\Video0`, for GPU GUID\ID (above)
+    - This creates a human-readable mapping for the GPU
+
+HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\VIDEO
+    - This appears to contain configuration of what device alias to use for different states (disc, rdpudd, workerdd)
+    - Each state has a reference to a respective HKLM\SYSTEM\CurrentControlSet\Services\%1\Device0 key (%1 = TSDDD, RDPUDD, workerdd)
+      - Each key contains generic information, nothing about the actual hardware device or references, seems like a symbolic/faux-references here to complete a circuit
+    - I suspect this key `\Terminal Server\VIDEO\*\` is what needs to be modified to configure which GPU to use for RDP
+      - All REG_SZ type values
+      - One value is named equal to alias name, i.e., \Device\Video0, and data set to path prefixed with `\REGISTRY\Machine\`, i.e., \REGISTRY\Machine\System\CurrenControlSet\Services\RDPUDD\Device0
+      - Second value is named VgaCompatible and data is set to the device alias, i.e. \Device\Video0
+    - Hypothesis: replace references of `\Device\Video0` with desired GPU alias, i.e., \Device\Video1, after researching the GUID=Alias mapping for the desired GPU
+
+#>
+
 # Main script execution
 $ErrorActionPreference = "Stop"
 
@@ -457,3 +479,12 @@ switch ($choice) {
         exit
     }
 }
+
+<# DEV NOTES FOR SCALABILITY AND FUTURE IMPROVEMENTS
+
+- Convert registry content into either CSV or JSON format, removing registry content from the actual script
+- Replace registry content in script with functions for handling CSV/JSON as input, basically turning the script into a registry state manager
+  - This would make it easy for anyone to contribute by focusing on easy-to-manage CSV/JSON files
+  - Script just needs to know how to work with CSV/JSON data, thereby making it more scalable and maintainable, and commits more focused on registry discoveries and personalized "profiles"
+
+#>
