@@ -422,6 +422,9 @@ HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\VIDEO
       - One value is named equal to alias name, i.e., \Device\Video0, and data set to path prefixed with `\REGISTRY\Machine\`, i.e., \REGISTRY\Machine\System\CurrenControlSet\Services\RDPUDD\Device0
       - Second value is named VgaCompatible and data is set to the device alias, i.e. \Device\Video0
     - Hypothesis: replace references of `\Device\Video0` with desired GPU alias, i.e., \Device\Video1, after researching the GUID=Alias mapping for the desired GPU
+      - Looks like `rdpudd` is the key to modify: rename value `\Device\Video0` to desired GPU alias, i.e., \Device\Video1
+      - Also rename data of value `VgaCompatible` to desired GPU alias, i.e., \Device\Video1
+      - Not sure if reboot is required, I rebooted, but not sure if it was necessary
 
 #>
 
@@ -486,5 +489,43 @@ switch ($choice) {
 - Replace registry content in script with functions for handling CSV/JSON as input, basically turning the script into a registry state manager
   - This would make it easy for anyone to contribute by focusing on easy-to-manage CSV/JSON files
   - Script just needs to know how to work with CSV/JSON data, thereby making it more scalable and maintainable, and commits more focused on registry discoveries and personalized "profiles"
+
+#>
+
+<#
+
+Issue 8
+https://github.com/Upinel/BetterRDP/issues/8#event-16106416526
+
+Need to validate and test this issue. I did not have any issues when I tested before making commits and pull requests, though. Things continue to function in my environment.
+
+```
+Enabling optimizations with the Powershell script erases the default keys in  
+HKEY\_LOCAL\_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters
+
+Such as:  
+EnablePlainTextPassword  
+EnableSecuritySignature  
+RequireSecuritySignature  
+ServiceDll  
+ServiceDllUnloadOnStop
+
+Which leads to breaking of the Workstation service on the next reboot and making it unable to start anymore with error code 2 "File not found"
+
+I think the problem is New-Item -Force which is being used.
+
+Here is a .reg file which repairs this damage:
+
+    Windows Registry Editor Version 5.00
+    
+    [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters]
+    "EnablePlainTextPassword"=dword:00000000
+    "RequireSecuritySignature"=dword:00000000
+    "EnableSecuritySignature"=dword:00000001
+    "ServiceDll"=hex(2):25,00,53,00,79,00,73,00,74,00,65,00,6d,00,52,00,6f,00,6f,\
+      00,74,00,25,00,5c,00,53,00,79,00,73,00,74,00,65,00,6d,00,33,00,32,00,5c,00,\
+      77,00,6b,00,73,00,73,00,76,00,63,00,2e,00,64,00,6c,00,6c,00,00,00
+    "ServiceDllUnloadOnStop"=dword:00000001
+```
 
 #>
